@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.5 (Con GIF y Pendiente)
+Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.6 (Rutas Absolutas)
 """
 import streamlit as st
 import numpy as np
@@ -11,9 +11,12 @@ import traceback
 import os
 
 # ==========================================
-# CONFIGURACIÓN DE LA PÁGINA WEB
+# CONFIGURACIÓN DE LA PÁGINA Y RUTAS
 # ==========================================
 st.set_page_config(page_title="Topgal Design Engine", layout="wide")
+
+# ESTO ES LA MAGIA: Obtiene la ruta exacta de este archivo en el servidor
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # ==========================================
 # CONSTANTES Y MOTOR MATEMÁTICO
@@ -136,21 +139,15 @@ def conector_q_vs_L(n_tomas, E, Iyy, W_m3, sigma_adm, ratio_montante, fs_aplicad
 # MOTOR DE GRAFICACIÓN ADAPTADO PARA WEB
 # ==========================================
 def render_plot(L_mm, q_vals, titulo, q_disenos, color_main='blue', q_def=None, q_ten=None):
-    """
-    Renderiza un gráfico individual con ajuste dinámico de ejes.
-    """
     fig, ax = plt.subplots(figsize=(6, 4.5))
     
-    # Línea principal
     label_main = "q(L) Admisible" if color_main == 'blue' else "q(L) SISTEMA (Envolvente)"
     ax.plot(L_mm, q_vals, linewidth=2.5 if color_main == 'blue' else 3.0, color=color_main, label=label_main)
     
-    # Líneas de límite de falla (si existen)
     if q_def is not None and q_ten is not None:
         ax.plot(L_mm, q_def, linestyle=":", color='orange', linewidth=1.5, label="Límite por Flecha")
         ax.plot(L_mm, q_ten, linestyle="--", color='red', linewidth=1.5, label="Límite por Tensión")
 
-    # Ajuste del Eje X e Y
     Q_MAX_GRAFICO = 200.0
     mask_vis = np.isfinite(q_vals) & (q_vals <= Q_MAX_GRAFICO)
     if np.any(mask_vis):
@@ -168,7 +165,6 @@ def render_plot(L_mm, q_vals, titulo, q_disenos, color_main='blue', q_def=None, 
         ymax = min(float(np.nanmax(q_vals[mask_y])) * 1.15, 600.0)
     ax.set_ylim(0.0, max(ymax, 100.0))
 
-    # Anotaciones de presiones de diseño
     colores = ["red", "orange", "magenta", "purple"]
     y_max_ax = ax.get_ylim()[1]
     for i, q_des in enumerate(q_disenos):
@@ -194,12 +190,14 @@ def render_plot(L_mm, q_vals, titulo, q_disenos, color_main='blue', q_def=None, 
 # ==========================================
 st.title("🏗️ Engine Estructural Topgal - Proyectos Estructurales EIRL")
 
-# --- 1. CARGA DEL GIF DVP DEBAJO DEL TÍTULO ---
-if os.path.exists("DVP.gif"):
-    st.image("DVP.gif", width=250)
+# --- 1. CARGA DEL GIF DVP CON RUTA ABSOLUTA ---
+gif_path = os.path.join(BASE_DIR, "DVP.gif")
+if os.path.exists(gif_path):
+    st.image(gif_path, width=250)
+else:
+    st.warning(f"No se encontró la imagen DVP.gif en: {gif_path}")
 # ----------------------------------------------
 
-# PANEL LATERAL DE CONTROLES (SIDEBAR)
 st.sidebar.header("⚙️ Parámetros de Diseño")
 
 modo = st.sidebar.radio("Modo de Análisis:", ["Fachada (Vertical)", "Techumbre (Cubierta)"])
@@ -218,9 +216,12 @@ if modo == "Techumbre (Cubierta)":
     carga_nieve = st.sidebar.number_input("Carga Nieve (kgf/m²):", value=30.0)
     st.sidebar.info("Pendiente fijada al 5%")
     
-    # --- 2. CARGA DE IMAGEN SLOPE.PNG EN EL SIDEBAR ---
-    if os.path.exists("slope.png"):
-        st.sidebar.image("slope.png", use_container_width=True)
+    # --- 2. CARGA DE LA PENDIENTE CON RUTA ABSOLUTA ---
+    slope_path = os.path.join(BASE_DIR, "slope.png")
+    if os.path.exists(slope_path):
+        st.sidebar.image(slope_path, use_container_width=True)
+    else:
+        st.sidebar.warning("Imagen slope.png no encontrada")
     # --------------------------------------------------
 
 st.sidebar.subheader("Sistema de Montante")
@@ -256,13 +257,11 @@ if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
         try:
             q_disenos = [q1, q2, q3]
             
-            # Conversiones de Unidades
             E_placa_Pa, B_m, I_placa_m4 = E_panel * 1e9, B_panel / 1000.0, I_panel * 1e-8
             sigma_placa_Pa, c_placa_m = sigma_panel * 1e6, (espesor / 2.0) / 1000.0
             E_mont_Pa, I_mont_m4, W_mont_m3 = E_mont * 1e9, I_mont * 1e-8, W_mont * 1e-6
             sigma_mont_Pa = sigma_mont * 1e6
 
-            # Buffer para exportar Excel sin guardar en disco local
             excel_buffer = io.BytesIO()
             with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
                 
@@ -270,13 +269,11 @@ if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
                     tomas_str = f"{n-1} Tomas Int."
                     st.subheader(f"Análisis con {tomas_str}")
 
-                    # 1. CÁLCULO PANEL
                     df_p = placas_q_vs_L(n, E_placa_Pa, B_m, I_placa_m4, ratio_panel, sigma_placa_Pa, c_placa_m)
                     q_pan_arr, L_arr = df_p["q_admisible (kgf/m2)"].values, df_p["L_total (mm)"].values
                     invertir_curva_para_excel(L_arr, q_pan_arr).to_excel(writer, sheet_name=f"Panel_{n}t", index=False)
                     fig_pan = render_plot(L_arr, q_pan_arr, f"PANEL TOPGAL - {tomas_str}", q_disenos, 'blue', df_p["q_deflexion (kgf/m2)"].values, df_p["q_tension (kgf/m2)"].values)
                     
-                    # 2. MONTANTE & SISTEMA (Si aplica)
                     fig_mon = None
                     fig_sis = None
                     if n > 1:
@@ -289,31 +286,28 @@ if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
                         invertir_curva_para_excel(L_arr, q_sis_arr).to_excel(writer, sheet_name=f"Sis_{n}t", index=False)
                         fig_sis = render_plot(L_arr, q_sis_arr, f"SISTEMA TOTAL ({mat_montante})", q_disenos, 'black')
 
-                    # --- SECCIÓN DE VISUALIZACIÓN (LAYOUT HORIZONTAL) ---
-                    # Creamos columnas con proporciones: 1 parte para esquema, 2 partes para cada gráfico
                     if n > 1:
                         c_esq, c_pan, c_mon, c_sis = st.columns([1, 2, 2, 2])
                     else:
-                        # Para el caso de 0 tomas, solo mostramos esquema y panel
                         c_esq, c_pan = st.columns([1, 3])
 
-                    # 1. Columna Esquema (Izquierda)
+                    # --- 3. CARGA DE ESQUEMAS CON RUTA ABSOLUTA ---
                     img_filename = IMAGENES_TOMAS.get(n)
-                    if img_filename and os.path.exists(img_filename):
-                        c_esq.image(img_filename, caption="Esquema Estático", use_container_width=True)
-                    else:
-                        c_esq.warning("Sin imagen")
+                    if img_filename:
+                        esq_path = os.path.join(BASE_DIR, img_filename)
+                        if os.path.exists(esq_path):
+                            c_esq.image(esq_path, caption="Esquema Estático", use_container_width=True)
+                        else:
+                            c_esq.warning(f"No se encontró: {img_filename}")
+                    # ----------------------------------------------
 
-                    # 2. Columnas Gráficos (Derecha)
                     c_pan.pyplot(fig_pan)
                     if n > 1:
                         c_mon.pyplot(fig_mon)
                         c_sis.pyplot(fig_sis)
-                    # ----------------------------------------------------
                     
-                    st.divider() # Línea divisoria entre análisis
+                    st.divider()
                     
-            # Descarga de Excel
             excel_data = excel_buffer.getvalue()
             st.success("¡Cálculo Finalizado Exitosamente!")
             st.download_button(
@@ -325,3 +319,4 @@ if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
 
         except Exception as e:
             st.error(f"Se produjo un error en el motor de cálculo: {e}")
+            st.code(traceback.format_exc())
