@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.4 (Layout Horizontal)
+Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.5 (Con GIF y Pendiente)
 """
 import streamlit as st
 import numpy as np
@@ -194,6 +194,11 @@ def render_plot(L_mm, q_vals, titulo, q_disenos, color_main='blue', q_def=None, 
 # ==========================================
 st.title("🏗️ Engine Estructural Topgal - Proyectos Estructurales EIRL")
 
+# --- 1. CARGA DEL GIF DVP DEBAJO DEL TÍTULO ---
+if os.path.exists("DVP.gif"):
+    st.image("DVP.gif", width=250)
+# ----------------------------------------------
+
 # PANEL LATERAL DE CONTROLES (SIDEBAR)
 st.sidebar.header("⚙️ Parámetros de Diseño")
 
@@ -212,6 +217,11 @@ if modo == "Techumbre (Cubierta)":
     peso_pc = st.sidebar.number_input("Peso PC (kgf/m²):", value=1.0 if espesor==16 else 1.25)
     carga_nieve = st.sidebar.number_input("Carga Nieve (kgf/m²):", value=30.0)
     st.sidebar.info("Pendiente fijada al 5%")
+    
+    # --- 2. CARGA DE IMAGEN SLOPE.PNG EN EL SIDEBAR ---
+    if os.path.exists("slope.png"):
+        st.sidebar.image("slope.png", use_container_width=True)
+    # --------------------------------------------------
 
 st.sidebar.subheader("Sistema de Montante")
 mat_montante = st.sidebar.selectbox("Material:", ["Aluminio AA6061-T6", "Policarbonato"])
@@ -290,8 +300,7 @@ if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
                     # 1. Columna Esquema (Izquierda)
                     img_filename = IMAGENES_TOMAS.get(n)
                     if img_filename and os.path.exists(img_filename):
-                        # use_column_width=True hace que la imagen se adapte al ancho de su columna angosta
-                        c_esq.image(img_filename, caption="Esquema Estático", use_column_width=True)
+                        c_esq.image(img_filename, caption="Esquema Estático", use_container_width=True)
                     else:
                         c_esq.warning("Sin imagen")
 
