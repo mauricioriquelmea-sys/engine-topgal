@@ -182,7 +182,25 @@ def render_plot(L_mm, q_vals, titulo, q_disenos, color_main='blue', q_def=None, 
 # ==========================================
 st.title("🏗️ Engine Estructural Topgal - Proyectos Estructurales EIRL")
 
-st.image("DVP.gif", width=250)
+# --- MÉTODO INFALIBLE PARA CARGAR GIFS ANIMADOS ---
+import base64
+import os
+
+try:
+    # 1. Buscamos la ruta exacta del GIF
+    gif_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "DVP.gif")
+    
+    # 2. Lo leemos y lo convertimos a código base64
+    with open(gif_path, "rb") as f:
+        contenido_gif = f.read()
+        data_url = base64.b64encode(contenido_gif).decode("utf-8")
+    
+    # 3. Lo incrustamos directamente como HTML puro en la página
+    st.markdown(f'<img src="data:image/gif;base64,{data_url}" width="250">', unsafe_allow_html=True)
+
+except Exception as e:
+    st.warning(f"⚠️ No se pudo cargar DVP.gif: {e}")
+# --------------------------------------------------
 
 st.sidebar.header("⚙️ Parámetros de Diseño")
 
