@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.2
+Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.3 (Con Esquemas)
 """
 import streamlit as st
 import numpy as np
@@ -8,6 +8,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import io
 import traceback
+import os
 
 # ==========================================
 # CONFIGURACIÓN DE LA PÁGINA WEB
@@ -23,6 +24,14 @@ PRESIONES_DVP_KGF = np.arange(50.0, 601.0, 50.0)
 PLACA_INCLUDE_END_SUPPORTS = True
 B_POR_ESPESOR_MM = {16: 998.0, 20: 998.0}
 I_POR_ESPESOR_CM4 = {16: 12.71, 20: 19.91}
+
+# Diccionario para mapear el número de apoyos (n) a la imagen del esquema
+IMAGENES_TOMAS = {
+    1: "esquema_1.png",
+    2: "esquema_2.png",
+    3: "esquema_3.png",
+    4: "esquema_4.png",
+}
 
 def _beam_element_stiffness(EI, L):
     k = EI / (L ** 3)
@@ -252,6 +261,15 @@ if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
                 for n in [1, 2, 3, 4]:
                     tomas_str = f"{n-1} Tomas Int."
                     st.subheader(f"Análisis con {tomas_str}")
+
+                    # --- INSERCIÓN DEL ESQUEMA ESTÁTICO ---
+                    img_filename = IMAGENES_TOMAS.get(n)
+                    if img_filename and os.path.exists(img_filename):
+                        # Usamos columnas para centrar la imagen y que no sea gigante
+                        col_img_L, col_img_C, col_img_R = st.columns([1, 2, 1])
+                        with col_img_C:
+                             st.image(img_filename, caption=f"Esquema Estático: {tomas_str}", use_column_width=True)
+                    # --------------------------------------
                     
                     # 1. CÁLCULO PANEL
                     df_p = placas_q_vs_L(n, E_placa_Pa, B_m, I_placa_m4, ratio_panel, sigma_placa_Pa, c_placa_m)
@@ -282,8 +300,9 @@ if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
                         col3.pyplot(fig_sis)
                     else:
                         # Mostrar solo el Panel en la primera configuración (0 Tomas)
-                        col1, col2, col3 = st.columns(3)
-                        col1.pyplot(fig_pan)
+                        # Usamos columnas para que el gráfico no se expanda al 100% del ancho
+                        col1, col2, col3 = st.columns([1, 2, 1])
+                        col2.pyplot(fig_pan)
                     
                     st.divider() # Línea divisoria entre análisis
                     
@@ -299,4 +318,5 @@ if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
 
         except Exception as e:
             st.error(f"Se produjo un error en el motor de cálculo: {e}")
-            st.code(traceback.format_exc())
+            # En producción, podrías ocultar el traceback completo
+            # st.code(traceback.format_exc())
