@@ -125,34 +125,54 @@ def conector_q_vs_L(n_tomas, E, Iyy, W_m3, sigma_adm, ratio_montante, fs_aplicad
 # ==========================================
 # MOTOR DE GRAFICACIÓN ADAPTADO PARA WEB
 # ==========================================
-def render_plot(L_mm, q_sistema, titulo, q_disenos, q_panel=None, q_montante=None):
-    fig, ax = plt.subplots(figsize=(8, 5))
+def render_plot(L_mm, q_vals, titulo, q_disenos, color_main='blue', q_def=None, q_ten=None):
+    fig, ax = plt.subplots(figsize=(6, 4.5))
     
-    if q_panel is not None: ax.plot(L_mm, q_panel, linestyle=":", color='blue', alpha=0.5, label="Capacidad Panel")
-    if q_montante is not None: ax.plot(L_mm, q_montante, linestyle=":", color='green', alpha=0.5, label="Capacidad Montante")
+    # Línea principal
+    label_main = "q(L) Admisible" if color_main == 'blue' else "q(L) SISTEMA (Envolvente)"
+    ax.plot(L_mm, q_vals, linewidth=2.5 if color_main == 'blue' else 3.0, color=color_main, label=label_main)
     
-    ax.plot(L_mm, q_sistema, linewidth=3.0, color='black', label="Envolvente Sistema")
+    # Líneas de límite de falla (si existen)
+    if q_def is not None and q_ten is not None:
+        ax.plot(L_mm, q_def, linestyle=":", color='orange', linewidth=1.5, label="Límite por Flecha")
+        ax.plot(L_mm, q_ten, linestyle="--", color='red', linewidth=1.5, label="Límite por Tensión")
 
-    ymax = min(float(np.nanmax(q_sistema)) * 1.15, 600.0) if np.isfinite(q_sistema).any() else 600.0
+    # Ajuste del Eje X e Y
+    Q_MAX_GRAFICO = 200.0
+    mask_vis = np.isfinite(q_vals) & (q_vals <= Q_MAX_GRAFICO)
+    if np.any(mask_vis):
+        L_vis = L_mm[mask_vis]
+        xmin = max(float(L_vis.min()) - 150, float(L_mm.min()))
+        xmax = min(float(L_vis.max()) + 150, float(L_mm.max()))
+        if xmax - xmin < 300: xmax = min(xmin + 300, float(L_mm.max()))
+        ax.set_xlim(xmin, xmax)
+    else:
+        ax.set_xlim(L_mm.min(), L_mm.max())
+
+    ymax = 600.0
+    mask_y = (L_mm >= ax.get_xlim()[0]) & (L_mm <= ax.get_xlim()[1]) & np.isfinite(q_vals)
+    if np.any(mask_y):
+        ymax = min(float(np.nanmax(q_vals[mask_y])) * 1.15, 600.0)
     ax.set_ylim(0.0, max(ymax, 100.0))
-    ax.set_xlim(L_mm.min(), L_mm.max())
 
+    # Anotaciones de presiones de diseño
     colores = ["red", "orange", "magenta", "purple"]
     y_max_ax = ax.get_ylim()[1]
     for i, q_des in enumerate(q_disenos):
         if q_des > 0:
             ax.axhline(q_des, linestyle="--", color=colores[i], label=f"q viento = {q_des} kgf/m²")
-            if np.nanmin(q_sistema) <= q_des <= np.nanmax(q_sistema):
-                idx = int(np.nanargmin(np.abs(q_sistema - q_des)))
+            qmin, qmax = np.nanmin(q_vals), np.nanmax(q_vals)
+            if np.isfinite(qmin) and np.isfinite(qmax) and (qmin <= q_des <= qmax):
+                idx = int(np.nanargmin(np.abs(q_vals - q_des)))
                 Li = float(L_mm[idx])
                 ax.axvline(Li, linestyle="--", color=colores[i])
                 ax.text(Li + 30, y_max_ax * (0.90 - 0.07 * i), f"L ≈ {Li:.0f} mm", color=colores[i], fontweight="bold")
 
-    ax.set_title(titulo, fontweight="bold")
+    ax.set_title(titulo, fontweight="bold", fontsize=10)
     ax.set_xlabel("Altura L [mm]", fontweight="bold")
     ax.set_ylabel("Presión de viento q(L) [kgf/m²]", fontweight="bold")
     ax.grid(True, linestyle="--", linewidth=0.5, color="gray", alpha=0.7)
-    ax.legend()
+    ax.legend(fontsize=8, loc="upper right")
     plt.tight_layout()
     return fig
 
