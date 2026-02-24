@@ -182,12 +182,7 @@ def render_plot(L_mm, q_vals, titulo, q_disenos, color_main='blue', q_def=None, 
 # ==========================================
 st.title("🏗️ Engine Estructural Topgal - Proyectos Estructurales EIRL")
 
-# --- 1. CARGA DEL GIF DVP (Carga directa) ---
-try:
-    st.image("DVP.gif", width=250)
-except Exception as e:
-    st.warning(f"No se pudo cargar DVP.gif. Error interno: {e}")
-# ----------------------------------------------
+st.image("DVP.gif", width=250)
 
 st.sidebar.header("⚙️ Parámetros de Diseño")
 
@@ -207,6 +202,9 @@ if modo == "Techumbre (Cubierta)":
     carga_nieve = st.sidebar.number_input("Carga Nieve (kgf/m²):", value=30.0)
     st.sidebar.info("Pendiente fijada al 5%")
     
+  
+    st.sidebar.image("slope.png", use_container_width=True)
+
     # --------------------------------------------------
 
 st.sidebar.subheader("Sistema de Montante")
@@ -237,12 +235,6 @@ q3 = col_q3.number_input("Q3", value=150)
 # EJECUCIÓN CENTRAL
 # ==========================================
 if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
-
-    # --- 2. CARGA DE LA PENDIENTE EN EL SIDEBAR (Carga directa) ---
-    try:
-        st.sidebar.image("slope.png", use_container_width=True)
-    except Exception as e:
-        st.sidebar.warning(f"No se pudo cargar slope.png. Error interno: {e}")
     
     with st.spinner("Procesando Elementos Finitos..."):
         try:
