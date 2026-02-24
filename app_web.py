@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.3 (Con Esquemas)
+Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.4 (Layout Horizontal)
 """
 import streamlit as st
 import numpy as np
@@ -27,10 +27,10 @@ I_POR_ESPESOR_CM4 = {16: 12.71, 20: 19.91}
 
 # Diccionario para mapear el número de apoyos (n) a la imagen del esquema
 IMAGENES_TOMAS = {
-    1: "esquema_1.png",
-    2: "esquema_2.png",
-    3: "esquema_3.png",
-    4: "esquema_4.png",
+    1: "esquema_1.png", # 0 tomas (2 apoyos)
+    2: "esquema_2.png", # 1 toma (3 apoyos)
+    3: "esquema_3.png", # 2 tomas (4 apoyos)
+    4: "esquema_4.png", # 3 tomas (5 apoyos)
 }
 
 def _beam_element_stiffness(EI, L):
@@ -138,8 +138,6 @@ def conector_q_vs_L(n_tomas, E, Iyy, W_m3, sigma_adm, ratio_montante, fs_aplicad
 def render_plot(L_mm, q_vals, titulo, q_disenos, color_main='blue', q_def=None, q_ten=None):
     """
     Renderiza un gráfico individual con ajuste dinámico de ejes.
-    color_main='blue' para componentes individuales.
-    color_main='black' para la curva maestra del sistema.
     """
     fig, ax = plt.subplots(figsize=(6, 4.5))
     
@@ -262,47 +260,47 @@ if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
                     tomas_str = f"{n-1} Tomas Int."
                     st.subheader(f"Análisis con {tomas_str}")
 
-                    # --- INSERCIÓN DEL ESQUEMA ESTÁTICO ---
-                    img_filename = IMAGENES_TOMAS.get(n)
-                    if img_filename and os.path.exists(img_filename):
-                        # Usamos columnas para centrar la imagen y que no sea gigante
-                        col_img_L, col_img_C, col_img_R = st.columns([1, 2, 1])
-                        with col_img_C:
-                             st.image(img_filename, caption=f"Esquema Estático: {tomas_str}", use_column_width=True)
-                    # --------------------------------------
-                    
                     # 1. CÁLCULO PANEL
                     df_p = placas_q_vs_L(n, E_placa_Pa, B_m, I_placa_m4, ratio_panel, sigma_placa_Pa, c_placa_m)
                     q_pan_arr, L_arr = df_p["q_admisible (kgf/m2)"].values, df_p["L_total (mm)"].values
                     invertir_curva_para_excel(L_arr, q_pan_arr).to_excel(writer, sheet_name=f"Panel_{n}t", index=False)
-                    
-                    # Gráfico del Panel
                     fig_pan = render_plot(L_arr, q_pan_arr, f"PANEL TOPGAL - {tomas_str}", q_disenos, 'blue', df_p["q_deflexion (kgf/m2)"].values, df_p["q_tension (kgf/m2)"].values)
                     
-                    # 2. MONTANTE & SISTEMA
+                    # 2. MONTANTE & SISTEMA (Si aplica)
+                    fig_mon = None
+                    fig_sis = None
                     if n > 1:
                         df_m = conector_q_vs_L(n, E_mont_Pa, I_mont_m4, W_mont_m3, sigma_mont_Pa, ratio_mont, fs_mat, B_m)
                         q_mon_arr = df_m["q_admisible (kgf/m2)"].values
                         invertir_curva_para_excel(L_arr, q_mon_arr).to_excel(writer, sheet_name=f"Mont_{n}t", index=False)
-                        
-                        # Gráfico del Montante
                         fig_mon = render_plot(L_arr, q_mon_arr, f"MONTANTE AISLADO - {tomas_str}", q_disenos, 'blue', df_m["q_deflexion (kgf/m2)"].values, df_m["q_tension (kgf/m2)"].values)
 
-                        # Gráfico del Sistema
                         q_sis_arr = np.minimum(q_pan_arr, q_mon_arr)
                         invertir_curva_para_excel(L_arr, q_sis_arr).to_excel(writer, sheet_name=f"Sis_{n}t", index=False)
                         fig_sis = render_plot(L_arr, q_sis_arr, f"SISTEMA TOTAL ({mat_montante})", q_disenos, 'black')
-                        
-                        # Mostrar los 3 gráficos alineados horizontalmente
-                        col1, col2, col3 = st.columns(3)
-                        col1.pyplot(fig_pan)
-                        col2.pyplot(fig_mon)
-                        col3.pyplot(fig_sis)
+
+                    # --- SECCIÓN DE VISUALIZACIÓN (LAYOUT HORIZONTAL) ---
+                    # Creamos columnas con proporciones: 1 parte para esquema, 2 partes para cada gráfico
+                    if n > 1:
+                        c_esq, c_pan, c_mon, c_sis = st.columns([1, 2, 2, 2])
                     else:
-                        # Mostrar solo el Panel en la primera configuración (0 Tomas)
-                        # Usamos columnas para que el gráfico no se expanda al 100% del ancho
-                        col1, col2, col3 = st.columns([1, 2, 1])
-                        col2.pyplot(fig_pan)
+                        # Para el caso de 0 tomas, solo mostramos esquema y panel
+                        c_esq, c_pan = st.columns([1, 3])
+
+                    # 1. Columna Esquema (Izquierda)
+                    img_filename = IMAGENES_TOMAS.get(n)
+                    if img_filename and os.path.exists(img_filename):
+                        # use_column_width=True hace que la imagen se adapte al ancho de su columna angosta
+                        c_esq.image(img_filename, caption="Esquema Estático", use_column_width=True)
+                    else:
+                        c_esq.warning("Sin imagen")
+
+                    # 2. Columnas Gráficos (Derecha)
+                    c_pan.pyplot(fig_pan)
+                    if n > 1:
+                        c_mon.pyplot(fig_mon)
+                        c_sis.pyplot(fig_sis)
+                    # ----------------------------------------------------
                     
                     st.divider() # Línea divisoria entre análisis
                     
@@ -318,5 +316,3 @@ if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
 
         except Exception as e:
             st.error(f"Se produjo un error en el motor de cálculo: {e}")
-            # En producción, podrías ocultar el traceback completo
-            # st.code(traceback.format_exc())
