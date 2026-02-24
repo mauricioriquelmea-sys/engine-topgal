@@ -207,11 +207,6 @@ if modo == "Techumbre (Cubierta)":
     carga_nieve = st.sidebar.number_input("Carga Nieve (kgf/m²):", value=30.0)
     st.sidebar.info("Pendiente fijada al 5%")
     
-    # --- 2. CARGA DE LA PENDIENTE EN EL SIDEBAR (Carga directa) ---
-    try:
-        st.sidebar.image("slope.png", use_container_width=True)
-    except Exception as e:
-        st.sidebar.warning(f"No se pudo cargar slope.png. Error interno: {e}")
     # --------------------------------------------------
 
 st.sidebar.subheader("Sistema de Montante")
@@ -242,6 +237,12 @@ q3 = col_q3.number_input("Q3", value=150)
 # EJECUCIÓN CENTRAL
 # ==========================================
 if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
+
+    # --- 2. CARGA DE LA PENDIENTE EN EL SIDEBAR (Carga directa) ---
+    try:
+        st.sidebar.image("slope.png", use_container_width=True)
+    except Exception as e:
+        st.sidebar.warning(f"No se pudo cargar slope.png. Error interno: {e}")
     
     with st.spinner("Procesando Elementos Finitos..."):
         try:
