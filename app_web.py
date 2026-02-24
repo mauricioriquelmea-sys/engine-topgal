@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Topgal / SL - Generador Web (Streamlit)
+Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.2
 """
 import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import io
+import traceback
 
 # ==========================================
 # CONFIGURACIÓN DE LA PÁGINA WEB
@@ -14,7 +15,7 @@ import io
 st.set_page_config(page_title="Topgal Design Engine", layout="wide")
 
 # ==========================================
-# CONSTANTES Y MOTOR MATEMÁTICO (Intacto)
+# CONSTANTES Y MOTOR MATEMÁTICO
 # ==========================================
 g = 9.80665
 L_MIN_MM, L_MAX_MM, PASO_MM = 500, 4000, 10
@@ -126,6 +127,11 @@ def conector_q_vs_L(n_tomas, E, Iyy, W_m3, sigma_adm, ratio_montante, fs_aplicad
 # MOTOR DE GRAFICACIÓN ADAPTADO PARA WEB
 # ==========================================
 def render_plot(L_mm, q_vals, titulo, q_disenos, color_main='blue', q_def=None, q_ten=None):
+    """
+    Renderiza un gráfico individual con ajuste dinámico de ejes.
+    color_main='blue' para componentes individuales.
+    color_main='black' para la curva maestra del sistema.
+    """
     fig, ax = plt.subplots(figsize=(6, 4.5))
     
     # Línea principal
@@ -230,50 +236,67 @@ q3 = col_q3.number_input("Q3", value=150)
 if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
     
     with st.spinner("Procesando Elementos Finitos..."):
-        q_disenos = [q1, q2, q3]
-        
-        # Conversiones de Unidades
-        E_placa_Pa, B_m, I_placa_m4 = E_panel * 1e9, B_panel / 1000.0, I_panel * 1e-8
-        sigma_placa_Pa, c_placa_m = sigma_panel * 1e6, (espesor / 2.0) / 1000.0
-        E_mont_Pa, I_mont_m4, W_mont_m3 = E_mont * 1e9, I_mont * 1e-8, W_mont * 1e-6
-        sigma_mont_Pa = sigma_mont * 1e6
-
-        # Buffer para exportar Excel sin guardar en disco local
-        excel_buffer = io.BytesIO()
-        with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
+        try:
+            q_disenos = [q1, q2, q3]
             
-            for n in [1, 2, 3, 4]:
-                st.subheader(f"Análisis con {n-1} Tomas Intermedias")
-                col_graf1, col_graf2 = st.columns(2)
+            # Conversiones de Unidades
+            E_placa_Pa, B_m, I_placa_m4 = E_panel * 1e9, B_panel / 1000.0, I_panel * 1e-8
+            sigma_placa_Pa, c_placa_m = sigma_panel * 1e6, (espesor / 2.0) / 1000.0
+            E_mont_Pa, I_mont_m4, W_mont_m3 = E_mont * 1e9, I_mont * 1e-8, W_mont * 1e-6
+            sigma_mont_Pa = sigma_mont * 1e6
+
+            # Buffer para exportar Excel sin guardar en disco local
+            excel_buffer = io.BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine='xlsxwriter') as writer:
                 
-                # 1. PANEL
-                df_p = placas_q_vs_L(n, E_placa_Pa, B_m, I_placa_m4, ratio_panel, sigma_placa_Pa, c_placa_m)
-                q_pan_arr, L_arr = df_p["q_admisible (kgf/m2)"].values, df_p["L_total (mm)"].values
-                invertir_curva_para_excel(L_arr, q_pan_arr).to_excel(writer, sheet_name=f"Panel_{n}t", index=False)
-                
-                # 2. MONTANTE & SISTEMA
-                if n > 1:
-                    df_m = conector_q_vs_L(n, E_mont_Pa, I_mont_m4, W_mont_m3, sigma_mont_Pa, ratio_mont, fs_mat, B_m)
-                    q_mon_arr = df_m["q_admisible (kgf/m2)"].values
-                    invertir_curva_para_excel(L_arr, q_mon_arr).to_excel(writer, sheet_name=f"Mont_{n}t", index=False)
+                for n in [1, 2, 3, 4]:
+                    tomas_str = f"{n-1} Tomas Int."
+                    st.subheader(f"Análisis con {tomas_str}")
                     
-                    q_sis_arr = np.minimum(q_pan_arr, q_mon_arr)
-                    invertir_curva_para_excel(L_arr, q_sis_arr).to_excel(writer, sheet_name=f"Sis_{n}t", index=False)
+                    # 1. CÁLCULO PANEL
+                    df_p = placas_q_vs_L(n, E_placa_Pa, B_m, I_placa_m4, ratio_panel, sigma_placa_Pa, c_placa_m)
+                    q_pan_arr, L_arr = df_p["q_admisible (kgf/m2)"].values, df_p["L_total (mm)"].values
+                    invertir_curva_para_excel(L_arr, q_pan_arr).to_excel(writer, sheet_name=f"Panel_{n}t", index=False)
                     
-                    fig_sis = render_plot(L_arr, q_sis_arr, f"ENVOLVENTE SISTEMA ({mat_montante})", q_disenos, q_pan_arr, q_mon_arr)
-                    col_graf1.pyplot(fig_sis)
-                else:
-                    fig_pan = render_plot(L_arr, q_pan_arr, "CAPACIDAD PANEL AISLADO", q_disenos)
-                    col_graf1.pyplot(fig_pan)
-                
-                st.divider()
-                
-        # Preparar botón de descarga Excel
-        excel_data = excel_buffer.getvalue()
-        st.success("¡Cálculo Finalizado Exitosamente!")
-        st.download_button(
-            label="📥 Descargar Reporte Completo en Excel",
-            data=excel_data,
-            file_name=f"Reporte_Estructural_Topgal.xlsx",
-            mime="application/vnd.ms-excel"
-        )
+                    # Gráfico del Panel
+                    fig_pan = render_plot(L_arr, q_pan_arr, f"PANEL TOPGAL - {tomas_str}", q_disenos, 'blue', df_p["q_deflexion (kgf/m2)"].values, df_p["q_tension (kgf/m2)"].values)
+                    
+                    # 2. MONTANTE & SISTEMA
+                    if n > 1:
+                        df_m = conector_q_vs_L(n, E_mont_Pa, I_mont_m4, W_mont_m3, sigma_mont_Pa, ratio_mont, fs_mat, B_m)
+                        q_mon_arr = df_m["q_admisible (kgf/m2)"].values
+                        invertir_curva_para_excel(L_arr, q_mon_arr).to_excel(writer, sheet_name=f"Mont_{n}t", index=False)
+                        
+                        # Gráfico del Montante
+                        fig_mon = render_plot(L_arr, q_mon_arr, f"MONTANTE AISLADO - {tomas_str}", q_disenos, 'blue', df_m["q_deflexion (kgf/m2)"].values, df_m["q_tension (kgf/m2)"].values)
+
+                        # Gráfico del Sistema
+                        q_sis_arr = np.minimum(q_pan_arr, q_mon_arr)
+                        invertir_curva_para_excel(L_arr, q_sis_arr).to_excel(writer, sheet_name=f"Sis_{n}t", index=False)
+                        fig_sis = render_plot(L_arr, q_sis_arr, f"SISTEMA TOTAL ({mat_montante})", q_disenos, 'black')
+                        
+                        # Mostrar los 3 gráficos alineados horizontalmente
+                        col1, col2, col3 = st.columns(3)
+                        col1.pyplot(fig_pan)
+                        col2.pyplot(fig_mon)
+                        col3.pyplot(fig_sis)
+                    else:
+                        # Mostrar solo el Panel en la primera configuración (0 Tomas)
+                        col1, col2, col3 = st.columns(3)
+                        col1.pyplot(fig_pan)
+                    
+                    st.divider() # Línea divisoria entre análisis
+                    
+            # Descarga de Excel
+            excel_data = excel_buffer.getvalue()
+            st.success("¡Cálculo Finalizado Exitosamente!")
+            st.download_button(
+                label="📥 Descargar Reporte Completo en Excel",
+                data=excel_data,
+                file_name=f"Reporte_Estructural_{modo}.xlsx",
+                mime="application/vnd.ms-excel"
+            )
+
+        except Exception as e:
+            st.error(f"Se produjo un error en el motor de cálculo: {e}")
+            st.code(traceback.format_exc())
