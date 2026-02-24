@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.6 (Rutas Absolutas)
+Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.7 (Imágenes Todo-Terreno)
 """
 import streamlit as st
 import numpy as np
@@ -11,12 +11,31 @@ import traceback
 import os
 
 # ==========================================
-# CONFIGURACIÓN DE LA PÁGINA Y RUTAS
+# CONFIGURACIÓN DE LA PÁGINA WEB
 # ==========================================
 st.set_page_config(page_title="Topgal Design Engine", layout="wide")
 
-# ESTO ES LA MAGIA: Obtiene la ruta exacta de este archivo en el servidor
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# ==========================================
+# FUNCIÓN TODO-TERRENO PARA IMÁGENES
+# ==========================================
+def cargar_imagen(nombre_archivo, width=None, use_container=False, contenedor=st):
+    """Busca la imagen en todas las rutas posibles del servidor Linux/Streamlit"""
+    rutas_posibles = [
+        nombre_archivo, # Ruta relativa directa (Streamlit Cloud nativo)
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), nombre_archivo), # Ruta absoluta
+        os.path.join(os.getcwd(), nombre_archivo) # Ruta del directorio de ejecución
+    ]
+    
+    for ruta in rutas_posibles:
+        if os.path.exists(ruta):
+            if width:
+                contenedor.image(ruta, width=width)
+            else:
+                contenedor.image(ruta, use_container_width=use_container)
+            return
+            
+    # Si no encuentra la imagen en ninguna ruta, muestra un cartel amarillo para avisarnos
+    contenedor.warning(f"⚠️ No se encontró el archivo: {nombre_archivo}")
 
 # ==========================================
 # CONSTANTES Y MOTOR MATEMÁTICO
@@ -28,12 +47,11 @@ PLACA_INCLUDE_END_SUPPORTS = True
 B_POR_ESPESOR_MM = {16: 998.0, 20: 998.0}
 I_POR_ESPESOR_CM4 = {16: 12.71, 20: 19.91}
 
-# Diccionario para mapear el número de apoyos (n) a la imagen del esquema
 IMAGENES_TOMAS = {
-    1: "esquema_1.png", # 0 tomas (2 apoyos)
-    2: "esquema_2.png", # 1 toma (3 apoyos)
-    3: "esquema_3.png", # 2 tomas (4 apoyos)
-    4: "esquema_4.png", # 3 tomas (5 apoyos)
+    1: "esquema_1.png",
+    2: "esquema_2.png",
+    3: "esquema_3.png",
+    4: "esquema_4.png",
 }
 
 def _beam_element_stiffness(EI, L):
@@ -135,9 +153,6 @@ def conector_q_vs_L(n_tomas, E, Iyy, W_m3, sigma_adm, ratio_montante, fs_aplicad
 
     return pd.DataFrame({"L_total (mm)": L_mm, "q_deflexion (kgf/m2)": np.array(q_def_list), "q_tension (kgf/m2)": np.array(q_ten_list), "q_admisible (kgf/m2)": np.array(q_min_list)})
 
-# ==========================================
-# MOTOR DE GRAFICACIÓN ADAPTADO PARA WEB
-# ==========================================
 def render_plot(L_mm, q_vals, titulo, q_disenos, color_main='blue', q_def=None, q_ten=None):
     fig, ax = plt.subplots(figsize=(6, 4.5))
     
@@ -190,12 +205,8 @@ def render_plot(L_mm, q_vals, titulo, q_disenos, color_main='blue', q_def=None, 
 # ==========================================
 st.title("🏗️ Engine Estructural Topgal - Proyectos Estructurales EIRL")
 
-# --- 1. CARGA DEL GIF DVP CON RUTA ABSOLUTA ---
-gif_path = os.path.join(BASE_DIR, "DVP.gif")
-if os.path.exists(gif_path):
-    st.image(gif_path, width=250)
-else:
-    st.warning(f"No se encontró la imagen DVP.gif en: {gif_path}")
+# --- 1. CARGA DEL GIF DVP DEBAJO DEL TÍTULO ---
+cargar_imagen("DVP.gif", width=250)
 # ----------------------------------------------
 
 st.sidebar.header("⚙️ Parámetros de Diseño")
@@ -216,12 +227,8 @@ if modo == "Techumbre (Cubierta)":
     carga_nieve = st.sidebar.number_input("Carga Nieve (kgf/m²):", value=30.0)
     st.sidebar.info("Pendiente fijada al 5%")
     
-    # --- 2. CARGA DE LA PENDIENTE CON RUTA ABSOLUTA ---
-    slope_path = os.path.join(BASE_DIR, "slope.png")
-    if os.path.exists(slope_path):
-        st.sidebar.image(slope_path, use_container_width=True)
-    else:
-        st.sidebar.warning("Imagen slope.png no encontrada")
+    # --- 2. CARGA DE LA PENDIENTE EN EL SIDEBAR ---
+    cargar_imagen("slope.png", use_container=True, contenedor=st.sidebar)
     # --------------------------------------------------
 
 st.sidebar.subheader("Sistema de Montante")
@@ -291,15 +298,11 @@ if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
                     else:
                         c_esq, c_pan = st.columns([1, 3])
 
-                    # --- 3. CARGA DE ESQUEMAS CON RUTA ABSOLUTA ---
+                    # --- 3. CARGA DE ESQUEMAS (Con la nueva función) ---
                     img_filename = IMAGENES_TOMAS.get(n)
                     if img_filename:
-                        esq_path = os.path.join(BASE_DIR, img_filename)
-                        if os.path.exists(esq_path):
-                            c_esq.image(esq_path, caption="Esquema Estático", use_container_width=True)
-                        else:
-                            c_esq.warning(f"No se encontró: {img_filename}")
-                    # ----------------------------------------------
+                        cargar_imagen(img_filename, use_container=True, contenedor=c_esq)
+                    # ---------------------------------------------------
 
                     c_pan.pyplot(fig_pan)
                     if n > 1:
