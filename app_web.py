@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.7 (Imágenes Todo-Terreno)
+Topgal / SL - Generador Web (Streamlit) - Versión Definitiva 11.8 (Carga Directa)
 """
 import streamlit as st
 import numpy as np
@@ -8,34 +8,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import io
 import traceback
-import os
 
 # ==========================================
 # CONFIGURACIÓN DE LA PÁGINA WEB
 # ==========================================
 st.set_page_config(page_title="Topgal Design Engine", layout="wide")
-
-# ==========================================
-# FUNCIÓN TODO-TERRENO PARA IMÁGENES
-# ==========================================
-def cargar_imagen(nombre_archivo, width=None, use_container=False, contenedor=st):
-    """Busca la imagen en todas las rutas posibles del servidor Linux/Streamlit"""
-    rutas_posibles = [
-        nombre_archivo, # Ruta relativa directa (Streamlit Cloud nativo)
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), nombre_archivo), # Ruta absoluta
-        os.path.join(os.getcwd(), nombre_archivo) # Ruta del directorio de ejecución
-    ]
-    
-    for ruta in rutas_posibles:
-        if os.path.exists(ruta):
-            if width:
-                contenedor.image(ruta, width=width)
-            else:
-                contenedor.image(ruta, use_container_width=use_container)
-            return
-            
-    # Si no encuentra la imagen en ninguna ruta, muestra un cartel amarillo para avisarnos
-    contenedor.warning(f"⚠️ No se encontró el archivo: {nombre_archivo}")
 
 # ==========================================
 # CONSTANTES Y MOTOR MATEMÁTICO
@@ -205,8 +182,11 @@ def render_plot(L_mm, q_vals, titulo, q_disenos, color_main='blue', q_def=None, 
 # ==========================================
 st.title("🏗️ Engine Estructural Topgal - Proyectos Estructurales EIRL")
 
-# --- 1. CARGA DEL GIF DVP DEBAJO DEL TÍTULO ---
-cargar_imagen("DVP.gif", width=250)
+# --- 1. CARGA DEL GIF DVP (Carga directa) ---
+try:
+    st.image("DVP.gif", width=250)
+except Exception as e:
+    st.warning(f"No se pudo cargar DVP.gif. Error interno: {e}")
 # ----------------------------------------------
 
 st.sidebar.header("⚙️ Parámetros de Diseño")
@@ -227,8 +207,11 @@ if modo == "Techumbre (Cubierta)":
     carga_nieve = st.sidebar.number_input("Carga Nieve (kgf/m²):", value=30.0)
     st.sidebar.info("Pendiente fijada al 5%")
     
-    # --- 2. CARGA DE LA PENDIENTE EN EL SIDEBAR ---
-    cargar_imagen("slope.png", use_container=True, contenedor=st.sidebar)
+    # --- 2. CARGA DE LA PENDIENTE EN EL SIDEBAR (Carga directa) ---
+    try:
+        st.sidebar.image("slope.png", use_container_width=True)
+    except Exception as e:
+        st.sidebar.warning(f"No se pudo cargar slope.png. Error interno: {e}")
     # --------------------------------------------------
 
 st.sidebar.subheader("Sistema de Montante")
@@ -298,11 +281,14 @@ if st.button("🚀 Ejecutar Cálculo y Generar Gráficos", type="primary"):
                     else:
                         c_esq, c_pan = st.columns([1, 3])
 
-                    # --- 3. CARGA DE ESQUEMAS (Con la nueva función) ---
+                    # --- 3. CARGA DE ESQUEMAS (Carga directa) ---
                     img_filename = IMAGENES_TOMAS.get(n)
                     if img_filename:
-                        cargar_imagen(img_filename, use_container=True, contenedor=c_esq)
-                    # ---------------------------------------------------
+                        try:
+                            c_esq.image(img_filename, caption="Esquema Estático", use_container_width=True)
+                        except Exception as e:
+                            c_esq.warning(f"Error cargando {img_filename}")
+                    # ----------------------------------------------
 
                     c_pan.pyplot(fig_pan)
                     if n > 1:
