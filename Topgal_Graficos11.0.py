@@ -15,6 +15,7 @@ import sys
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
+import traceback
 
 import numpy as np
 import pandas as pd
@@ -328,6 +329,7 @@ def guardar_grafico(L_mm, q_vals, titulo, filename, n_tomas, q_disenos=None, q_d
     
     plt.tight_layout()
     plt.savefig(filename, dpi=300)
+    plt.close(fig) # Importante para liberar memoria
 
 def guardar_grafico_sistema(L_mm, q_sistema, titulo, filename, n_tomas, q_disenos=None):
     fig, (ax_esq, ax) = plt.subplots(1, 2, figsize=(11, 5), gridspec_kw={"width_ratios": [1, 2.5]})
@@ -360,6 +362,7 @@ def guardar_grafico_sistema(L_mm, q_sistema, titulo, filename, n_tomas, q_diseno
     
     plt.tight_layout()
     plt.savefig(filename, dpi=300)
+    plt.close(fig) # Importante para liberar memoria
 
 # ==========================================================
 # GUI - FACHADAS / TECHUMBRES
@@ -367,12 +370,11 @@ def guardar_grafico_sistema(L_mm, q_sistema, titulo, filename, n_tomas, q_diseno
 class TopgalFachadasApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("SL - Generador de Gráficos FACHADA y TECHUMBRE - Versión 11.0")
-        # DIMENSIONES REDISEÑADAS PARA ACOMODAR EL NUEVO PANEL DE TECHUMBRE
+        self.title("SL - Generador de Gráficos FACHADA y TECHUMBRE - Versión 11.1")
         self.geometry("850x750") 
         
         # VARIABLES GLOBALES ESTRUCTURALES
-        self.var_modo = tk.StringVar(value="Fachada")  # Toggle Fachada vs Techumbre
+        self.var_modo = tk.StringVar(value="Fachada")  
         
         self.var_espesor = tk.StringVar(value="16")
         self.var_E_placa = tk.StringVar(value="2.4")
@@ -403,7 +405,6 @@ class TopgalFachadasApp(tk.Tk):
         self.var_B.set(str(B_POR_ESPESOR_MM.get(e, 998.0)))
         self.var_I_placa.set(str(I_POR_ESPESOR_CM4.get(e, 18.0)))
         
-        # Automatización del peso según espesor (editable posteriormente por el usuario)
         if e == 16:
             self.var_peso_pc.set("1.0")
         elif e == 20:
@@ -412,17 +413,17 @@ class TopgalFachadasApp(tk.Tk):
     def _on_modo_change(self):
         modo = self.var_modo.get()
         if modo == "Techumbre":
-            self.frm_techumbre.grid()  # Despliega el panel de techumbre
+            self.frm_techumbre.grid()  
         else:
-            self.frm_techumbre.grid_remove() # Oculta el panel de techumbre
+            self.frm_techumbre.grid_remove() 
 
     def _on_montante_change(self):
         tipo = self.var_tipo_montante.get()
         if tipo == "Aluminio":
             self.var_E_montante.set("70.0")
             self.var_I_montante.set("2.75")
-            self.var_W_montante.set("1.77") # W = I/c -> 2.75 / 1.55 cm
-            self.var_sigma_montante.set("142.4") # AA6061-T6
+            self.var_W_montante.set("1.77") 
+            self.var_sigma_montante.set("142.4") 
             self.entry_E_mont.config(state="readonly")
             self.entry_I_mont.config(state="normal") 
             self.entry_W_mont.config(state="normal") 
@@ -430,7 +431,7 @@ class TopgalFachadasApp(tk.Tk):
         else:
             self.var_E_montante.set("2.4")
             self.var_I_montante.set("25.0")
-            self.var_W_montante.set("12.5") # Valor ilustrativo
+            self.var_W_montante.set("12.5") 
             self.var_sigma_montante.set("15.0") 
             self.entry_E_mont.config(state="normal")
             self.entry_I_mont.config(state="normal")
@@ -506,18 +507,10 @@ class TopgalFachadasApp(tk.Tk):
         self.lbl_img_pendiente = tk.Label(self.frm_techumbre, text="[esquema_pendiente.png]", fg="gray")
         self.lbl_img_pendiente.grid(row=4, column=0, columnspan=2, sticky="w", padx=5, pady=2)
         
-        img_pend_path = resource_path("slope.png")
+        img_pend_path = resource_path("esquema_pendiente.png")
         if os.path.exists(img_pend_path):
-            # 1. Cargamos la imagen original
             img_original = tk.PhotoImage(file=img_pend_path)
-            
-            # 2. ESCALADO DE LA FIGURA
-            # subsample(2, 2) reduce al 50%. 
-            # Si tu imagen es muy grande, prueba con (3, 3) o (4, 4).
-            # Si necesitas agrandarla, usa img_original.zoom(2, 2)
             img_escalada = img_original.subsample(4, 4) 
-            
-            # 3. Asignamos la imagen escalada al Label
             self.lbl_img_pendiente.config(image=img_escalada, text="")
             self.lbl_img_pendiente.image = img_escalada
 
@@ -603,7 +596,7 @@ class TopgalFachadasApp(tk.Tk):
                 float(self.var_q3.get() or 0)
             )
 
-            # Extraer variables de techumbre si el modo está activo (para usarlas en la matemática)
+            # Extraer variables de techumbre
             if modo == "Techumbre":
                 peso_pc_kgf = float(self.var_peso_pc.get())
                 carga_nieve_kgf = float(self.var_carga_nieve.get())
@@ -615,13 +608,13 @@ class TopgalFachadasApp(tk.Tk):
 
             graficos_generados = 0
 
+            # BUCLE PRINCIPAL (Abarca desde 0 tomas hasta 3 tomas)
             for n in [1, 2, 3, 4]:
                 tomas_str = f"{n-1} Tomas Int."
                 
-                # ==================== CÁLCULO PANEL ====================
+                # ==================== 1. CÁLCULO Y GRÁFICO DEL PANEL ====================
                 c_placa = (float(self.var_espesor.get()) / 2.0) / 1000.0
                 
-                # A futuro: Aquí se inyectará la matemática de nieve y peso si es modo Techumbre
                 df_p = placas_q_vs_L(n, E_placa, B_m, I_placa, ratio_placa, sigma_adm_placa_Pa, c_placa)
                 q_panel_array = df_p["q_admisible (kgf/m2)"].values
                 L_mm_array = df_p["L_total (mm)"].values
@@ -641,8 +634,8 @@ class TopgalFachadasApp(tk.Tk):
                 )
                 graficos_generados += 1
 
-                # ==================== CÁLCULO MONTANTE Y SISTEMA ====================
-                if n > 1:
+                # ==================== 2. CÁLCULO DEL MONTANTE Y SISTEMA ====================
+                if n > 1: # Solo calcula montante si hay tomas intermedias
                     if tipo_mont == "Aluminio":
                         fs_material = 1.0  
                     else:
@@ -666,7 +659,7 @@ class TopgalFachadasApp(tk.Tk):
                     )
                     graficos_generados += 1
 
-                    # ==================== CREACIÓN DEL SISTEMA (ENVOLVENTE) ====================
+                    # CREACIÓN DEL SISTEMA (ENVOLVENTE)
                     q_sistema_array = np.minimum(q_panel_array, q_montante_array)
 
                     df_sistema_inv = invertir_curva_para_excel(L_mm_array, q_sistema_array)
@@ -682,6 +675,7 @@ class TopgalFachadasApp(tk.Tk):
                     )
                     graficos_generados += 1
 
+            # FIN DEL BUCLE
             writer.close()
             messagebox.showinfo(
                 "Operación Exitosa", 
@@ -693,7 +687,8 @@ class TopgalFachadasApp(tk.Tk):
             plt.show()
 
         except Exception as ex:
-            messagebox.showerror("Error de Ejecución", str(ex))
+            error_details = traceback.format_exc()
+            messagebox.showerror("Error de Ejecución", f"Ocurrió un error:\n{str(ex)}\n\nDetalles:\n{error_details}")
 
 # ==========================================================
 # PUNTO DE ENTRADA (ENTRY POINT)
